@@ -4,32 +4,31 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                // Jenkins pulls repo automatically, so nothing required here
                 echo 'Checked out source code'
             }
         }
 
         stage('Build') {
             steps {
-                sh '''
-                mkdir -p build
-                zip -r build/myapp.zip .
+                bat '''
+                if not exist build mkdir build
+                powershell Compress-Archive -Path * -DestinationPath build\\myapp.zip -Force
                 '''
             }
         }
 
         stage('Test') {
             steps {
-                sh 'python3 -m unittest discover tests'
+                bat 'python -m unittest discover tests'
             }
         }
 
         stage('Deploy') {
             steps {
-                sh '''
-                mkdir -p /tmp/deploy
-                cp build/myapp.zip /tmp/deploy/
-                echo "Deployed at $(date)" > /tmp/deploy/deploy.log
+                bat '''
+                if not exist C:\\temp\\deploy mkdir C:\\temp\\deploy
+                copy build\\myapp.zip C:\\temp\\deploy\\
+                echo Deployed at %date% %time% > C:\\temp\\deploy\\deploy.log
                 '''
             }
         }
