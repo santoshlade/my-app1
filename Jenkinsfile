@@ -1,6 +1,12 @@
 pipeline {
     agent any
 
+    // Define parameters for versioning & rollback
+    parameters {
+        string(name: 'APP_VERSION', defaultValue: 'v1.0.0', description: 'Version tag for this build')
+        booleanParam(name: 'ROLLBACK', defaultValue: false, description: 'Check to rollback to previous version')
+    }
+
     stages {
         stage('Checkout') {
             steps {
@@ -9,26 +15,44 @@ pipeline {
         }
 
         stage('Build Docker Image') {
+            when { expression { return !params.ROLLBACK } }  // Skip build if rolling back
             steps {
-                bat 'docker build -t myapp1:latest .'
+                // Build Docker image with a version tag
+                bat "docker build -t myapp1:${params.APP_VERSION} ."
+                // Optionally tag latest for convenience
+                bat "docker tag myapp1:${params.APP_VERSION} myapp1:latest"
             }
         }
 
-        stage('Run Docker Container') {
+        stage('Deploy / Rollback') {
             steps {
-                // Stop any old container before running a new one
-                bat '''
-                docker stop myapp1 || echo "No container to stop"
-                docker rm myapp1 || echo "No container to remove"
-                docker run -d -p 5000:5000 --name myapp1 myapp1:latest
-                '''
+                script {
+                    def versionToRun = params.ROLLBACK ? params.APP_VERSION : 'latest'
+                    echo "Deploying container version: ${versionToRun}"
+
+                    // Stop & remove old container
+                    bat '''
+                    docker stop myapp1 || echo "No container to stop"
+                    docker rm myapp1   || echo "No container to remove"
+                    '''
+
+                    // Run container
+                    bat "docker run -d -p 5000:5000 --name myapp1 myapp1:${versionToRun}"
+                }
+            }
+        }
+
+        stage('Verify') {
+            steps {
+                echo "App should be running at http://localhost:5000"
+                bat "docker ps"
             }
         }
     }
 
     post {
         success {
-            echo "App is running at http://localhost:5000 🚀"
+            echo "Pipeline finished successfully!"
         }
     }
 }
