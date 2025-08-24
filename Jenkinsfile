@@ -8,35 +8,27 @@ pipeline {
             }
         }
 
-        stage('Build') {
+        stage('Build Docker Image') {
             steps {
-                bat '''
-                if not exist build mkdir build
-                powershell Compress-Archive -Path * -DestinationPath build\\myapp.zip -Force
-                '''
+                bat 'docker build -t myapp1:latest .'
             }
         }
 
-        stage('Test') {
+        stage('Run Docker Container') {
             steps {
-                bat 'python -m unittest discover tests'
-            }
-        }
-
-        stage('Deploy') {
-            steps {
+                // Stop any old container before running a new one
                 bat '''
-                if not exist C:\\temp\\deploy mkdir C:\\temp\\deploy
-                copy build\\myapp.zip C:\\temp\\deploy\\
-                echo Deployed at %date% %time% > C:\\temp\\deploy\\deploy.log
+                docker stop myapp1 || echo "No container to stop"
+                docker rm myapp1 || echo "No container to remove"
+                docker run -d -p 5000:5000 --name myapp1 myapp1:latest
                 '''
             }
         }
     }
 
     post {
-        always {
-            archiveArtifacts artifacts: 'build/**', fingerprint: true
+        success {
+            echo "App is running at http://localhost:5000 🚀"
         }
     }
 }

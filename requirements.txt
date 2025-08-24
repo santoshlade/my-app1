@@ -1,1 +1,1 @@
-# no dependencies needed for now
+flask==2.2.5
